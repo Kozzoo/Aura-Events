@@ -15,7 +15,24 @@ function uploadHref(value?: string | null) {
   return `/api/uploads/${encodeURIComponent(value)}`;
 }
 
+function freelancerPhotoHref(freelancerId: number, profilePhoto?: string | null) {
+  // If we have an uploaded file name/path, serve it directly from /api/uploads
+  if (
+    profilePhoto &&
+    (profilePhoto.startsWith("/") ||
+      profilePhoto.startsWith("http://") ||
+      profilePhoto.startsWith("https://") ||
+      !profilePhoto.includes("/"))
+  ) {
+    return uploadHref(profilePhoto);
+  }
+
+  // Otherwise, fall back to the DB-backed photo endpoint
+  return `/api/freelancers/${freelancerId}/photo`;
+}
+
 function DetailField({
+
   label,
   value,
   wide = false,
@@ -55,8 +72,9 @@ export default async function FreelancerDetailsPage({
   const freelancer = db.freelancers.find((f) => f.id === id);
   if (!freelancer) return notFound();
 
-  const profilePhotoHref = uploadHref(freelancer.profilePhoto);
+  const profilePhotoHref = freelancerPhotoHref(freelancer.id, freelancer.profilePhoto);
   const cvHref = uploadHref(freelancer.cv);
+
 
   return (
     <main className="min-h-screen bg-black px-5 py-6 text-white sm:px-8 lg:px-10">
