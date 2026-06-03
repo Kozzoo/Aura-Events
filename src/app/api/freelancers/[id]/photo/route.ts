@@ -34,8 +34,34 @@ export async function GET(
       return NextResponse.json({ error: "Freelancer not found" }, { status: 404 });
     }
 
-    // If we only have a filename/path stored in profilePhoto, serve it from /api/uploads.
-    // If profile_photo_data is truly needed, this endpoint should query it directly.
+    // Prefer returning binary photo directly.
+    // `profilePhotoData` comes from `profile_photo_data`.
+    if (freelancer.profilePhotoData) {
+      const filename = freelancer.profilePhoto || "";
+      const contentType = filename?.endsWith(".png")
+        ? "image/png"
+        : filename?.endsWith(".jpg") || filename?.endsWith(".jpeg")
+          ? "image/jpeg"
+          : filename?.endsWith(".gif")
+            ? "image/gif"
+            : filename?.endsWith(".webp")
+              ? "image/webp"
+              : "image/jpeg";
+
+      const photoBuffer = Buffer.isBuffer(freelancer.profilePhotoData)
+        ? freelancer.profilePhotoData
+        : Buffer.from(freelancer.profilePhotoData as any);
+
+      return new NextResponse(photoBuffer, {
+
+        headers: {
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=3600",
+        },
+      });
+    }
+
+    // Fallback to uploaded-file path if binary isn't available.
     if (!freelancer.profilePhoto) {
       return NextResponse.json({ error: "No photo available" }, { status: 404 });
     }
@@ -58,6 +84,7 @@ export async function GET(
         "Content-Type": contentType,
       },
     });
+
 
 
 

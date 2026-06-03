@@ -184,7 +184,10 @@ export async function readDb(): Promise<Database> {
         languages,
         availability,
         profile_photo as "profilePhoto",
+        profile_photo_data as "profilePhotoData",
         cv,
+        cv_data as "cvData",
+
         status,
         is_row_deleted as "isRowDeleted",
         created_at as "createdAt"
@@ -198,6 +201,7 @@ export async function readDb(): Promise<Database> {
     clients: clientsResult.rows as ClientRequest[],
     freelancers: freelancersResult.rows as Freelancer[],
   };
+
 }
 
 export async function addClientRequest(
