@@ -28,6 +28,9 @@ export type Freelancer = {
   availability: string;
   profilePhoto?: string;
   cv?: string;
+  // Binary data stored in DB (not returned by read endpoints by default)
+  profilePhotoData?: Buffer | null;
+  cvData?: Buffer | null;
   status: FreelancerStatus;
   isRowDeleted?: boolean;
   createdAt: string;

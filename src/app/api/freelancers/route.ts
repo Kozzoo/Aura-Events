@@ -1,4 +1,3 @@
-import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
 import { addFreelancer } from "@/lib/db";
@@ -6,20 +5,18 @@ import { isEmail, numberValue, requireFields, text } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
-const uploadDir = path.join(process.cwd(), "data", "uploads");
-
-async function saveUpload(file: FormDataEntryValue | null, prefix: string) {
+// On serverless platforms the filesystem is read-only; instead of writing uploads
+// to disk we keep the bytes and store them in the database as bytea columns.
+async function readUploadData(file: FormDataEntryValue | null, prefix: string) {
   if (!(file instanceof File) || file.size === 0) {
-    return undefined;
+    return { filename: undefined, data: undefined };
   }
 
-  await mkdir(uploadDir, { recursive: true });
   const extension = path.extname(file.name).slice(0, 12);
   const safeName = `${prefix}-${Date.now()}-${crypto.randomUUID()}${extension}`;
   const bytes = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(uploadDir, safeName), bytes);
 
-  return safeName;
+  return { filename: safeName, data: bytes };
 }
 
 export async function POST(request: Request) {
@@ -35,8 +32,10 @@ export async function POST(request: Request) {
       experience: text(formData.get("experience")),
       languages: text(formData.get("languages")),
       availability: text(formData.get("availability")),
-      profilePhoto: await saveUpload(formData.get("profilePhoto"), "photo"),
-      cv: await saveUpload(formData.get("cv"), "cv"),
+      profilePhoto: (await readUploadData(formData.get("profilePhoto"), "photo")).filename,
+      profilePhotoData: (await readUploadData(formData.get("profilePhoto"), "photo")).data,
+      cv: (await readUploadData(formData.get("cv"), "cv")).filename,
+      cvData: (await readUploadData(formData.get("cv"), "cv")).data,
     };
     const missing = requireFields(
       {

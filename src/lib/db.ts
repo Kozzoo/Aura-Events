@@ -41,7 +41,9 @@ async function initializeTables() {
         languages TEXT,
         availability TEXT,
         profile_photo VARCHAR(255),
+        profile_photo_data BYTEA,
         cv VARCHAR(255),
+        cv_data BYTEA,
         status VARCHAR(50) DEFAULT 'Pending',
         is_row_deleted BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -54,6 +56,13 @@ async function initializeTables() {
       await client.query(`ALTER TABLE freelancers ALTER COLUMN email DROP NOT NULL`);
     } catch (e) {
       // ignore if column doesn't exist or cannot be altered
+    }
+    // Ensure binary columns exist for storing uploaded files
+    try {
+      await client.query(`ALTER TABLE freelancers ADD COLUMN IF NOT EXISTS profile_photo_data BYTEA`);
+      await client.query(`ALTER TABLE freelancers ADD COLUMN IF NOT EXISTS cv_data BYTEA`);
+    } catch (e) {
+      // ignore
     }
 
     await client.query(`
@@ -232,8 +241,8 @@ export async function addFreelancer(
 ) {
   const result = await pool.query(
     `
-    INSERT INTO freelancers (full_name, age, gender, phone, email, city, experience, languages, availability, profile_photo, cv, status)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'Pending')
+    INSERT INTO freelancers (full_name, age, gender, phone, email, city, experience, languages, availability, profile_photo, profile_photo_data, cv, cv_data, status)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending')
     RETURNING 
       id,
       full_name as "fullName",
@@ -246,7 +255,9 @@ export async function addFreelancer(
       languages,
       availability,
       profile_photo as "profilePhoto",
+      /* profile_photo_data omitted from RETURNING for performance */
       cv,
+      /* cv_data omitted from RETURNING for performance */
       status,
       created_at as "createdAt"
     `,
@@ -261,7 +272,9 @@ export async function addFreelancer(
       input.languages,
       input.availability,
       input.profilePhoto,
+      (input as any).profilePhotoData || null,
       input.cv,
+      (input as any).cvData || null,
     ],
   );
 
