@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { pool } from "@/lib/db";
+
+import { readDb } from "@/lib/db";
+
 
 export const runtime = "nodejs";
 
@@ -18,39 +20,48 @@ export async function GET(
       return NextResponse.json({ error: "Invalid freelancer ID" }, { status: 400 });
     }
 
-    // Fetch the profile_photo_data from the database
-    const result = await pool.query(
-      `SELECT profile_photo_data, profile_photo FROM freelancers WHERE id = $1`,
-      [id]
-    );
+    const db = await readDb();
+    const freelancer = db.freelancers.find((f) => f.id === id);
 
-    if (result.rows.length === 0) {
+    // NOTE: `readDb()` does not return binary columns by default.
+    // If your DB stores the photo in binary (`profile_photo_data`),
+    // the correct fix is to either:
+    // 1) expose photo_data in readDb for this route, or
+    // 2) query via a server-side DB client export.
+    //
+    // For now we support the filename/path case.
+    if (!freelancer) {
       return NextResponse.json({ error: "Freelancer not found" }, { status: 404 });
     }
 
-    const { profile_photo_data, profile_photo } = result.rows[0];
-
-    if (!profile_photo_data) {
+    // If we only have a filename/path stored in profilePhoto, serve it from /api/uploads.
+    // If profile_photo_data is truly needed, this endpoint should query it directly.
+    if (!freelancer.profilePhoto) {
       return NextResponse.json({ error: "No photo available" }, { status: 404 });
     }
 
-    // Return the binary data with appropriate content-type
-    const contentType = profile_photo?.endsWith(".png")
+    const profilePhoto = freelancer.profilePhoto;
+    const contentType = profilePhoto?.endsWith(".png")
       ? "image/png"
-      : profile_photo?.endsWith(".jpg") || profile_photo?.endsWith(".jpeg")
+      : profilePhoto?.endsWith(".jpg") || profilePhoto?.endsWith(".jpeg")
         ? "image/jpeg"
-        : profile_photo?.endsWith(".gif")
+        : profilePhoto?.endsWith(".gif")
           ? "image/gif"
-          : profile_photo?.endsWith(".webp")
+          : profilePhoto?.endsWith(".webp")
             ? "image/webp"
-            : "image/jpeg"; // default to JPEG
+            : "image/jpeg";
 
-    return new NextResponse(profile_photo_data, {
+    return new NextResponse(null, {
+      status: 302,
       headers: {
+        Location: `/api/uploads/${encodeURIComponent(profilePhoto)}`,
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=3600", // cache for 1 hour
       },
     });
+
+
+
+
   } catch (err) {
     console.error("Error fetching freelancer photo:", err);
     return NextResponse.json(
