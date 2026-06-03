@@ -17,9 +17,9 @@ export const metadata: Metadata = {
   description:
     "A modern event staffing platform for client requests, freelancer usher applications, and secure admin management.",
   icons: {
-    icon: "/favicon.png?v=2",
-    shortcut: "/favicon.png?v=2",
-    apple: "/favicon.png?v=2",
+    icon: "/favicon.ico?v=2",
+    shortcut: "/favicon.ico?v=2",
+    apple: "/favicon.ico?v=2",
   },
 };
 
