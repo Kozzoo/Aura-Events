@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import crypto from "crypto";
 import type { ClientRequest, Database, Freelancer, FreelancerStatus } from "./types";
 
 const pool = new Pool({
@@ -51,6 +52,7 @@ async function initializeTables() {
       CREATE TABLE IF NOT EXISTS admins (
         id SERIAL PRIMARY KEY,
         username VARCHAR(255) UNIQUE NOT NULL,
+        password_hash TEXT,
         password_plain TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -59,8 +61,8 @@ async function initializeTables() {
     // Ensure existing tables have the soft-delete column
     await client.query(`ALTER TABLE client_requests ADD COLUMN IF NOT EXISTS is_row_deleted BOOLEAN DEFAULT false`);
     await client.query(`ALTER TABLE freelancers ADD COLUMN IF NOT EXISTS is_row_deleted BOOLEAN DEFAULT false`);
-    // remove hashed password column if present and ensure plaintext column exists
-    await client.query(`ALTER TABLE admins DROP COLUMN IF EXISTS password_hash`);
+    // preserve legacy hashed password support and ensure plaintext column exists
+    await client.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS password_hash TEXT`);
     await client.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS password_plain TEXT`);
     // seed admin from env if provided
     try {
@@ -78,23 +80,50 @@ async function initializeTables() {
 }
 
 export async function addAdmin(username: string, password: string) {
+  const normalizedUsername = username.trim().toLowerCase();
   const result = await pool.query(
     `INSERT INTO admins (username, password_plain) VALUES ($1, $2) ON CONFLICT (username) DO NOTHING RETURNING id, username`,
-    [username, password],
+    [normalizedUsername, password],
   );
 
   return result.rows[0] || null;
 }
 
 export async function getAdminByUsername(username: string) {
-  const result = await pool.query(`SELECT id, username, password_plain FROM admins WHERE username = $1`, [username]);
+  const normalizedUsername = username.trim();
+  const result = await pool.query(
+    `SELECT id, username, password_hash, password_plain FROM admins WHERE LOWER(username) = LOWER($1)`,
+    [normalizedUsername],
+  );
   return result.rows[0] || null;
+}
+
+function hashPassword(password: string) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derived = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${derived}`;
+}
+
+function verifyHash(password: string, stored: string) {
+  if (!stored) return false;
+  const [salt, hash] = stored.split(":");
+  if (!salt || !hash) return false;
+  const derived = crypto.scryptSync(password, salt, 64).toString("hex");
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(derived, "hex"));
+  } catch {
+    return false;
+  }
 }
 
 export async function verifyAdminCredentials(username: string, password: string) {
   const row = await getAdminByUsername(username);
   if (!row) return false;
-  return row.password_plain === password;
+  if (row.password_plain) {
+    return row.password_plain === password;
+  }
+
+  return row.password_hash ? verifyHash(password, row.password_hash) : false;
 }
 
 export async function getAllAdmins() {

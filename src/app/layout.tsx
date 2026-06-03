@@ -16,6 +16,10 @@ export const metadata: Metadata = {
   title: "AURA EVENTS | Premium Event and Usher Management",
   description:
     "A modern event staffing platform for client requests, freelancer usher applications, and secure admin management.",
+  icons: {
+    icon: [{ url: "/favicon.png", type: "image/png" }],
+    shortcut: [{ url: "/favicon.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({

@@ -5,11 +5,12 @@ import { verifyAdminCredentials } from "@/lib/db";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const { username, password } = (await request.json().catch(() => ({}))) as {
+  const { username: rawUsername, password } = (await request.json().catch(() => ({}))) as {
     username?: string;
     password?: string;
   };
 
+  const username = rawUsername?.trim();
   console.log("[LOGIN] Attempting login for username:", username);
   console.log("[LOGIN] Password received:", password ? `${password.length} chars` : "empty");
 
