@@ -35,7 +35,7 @@ async function initializeTables() {
         age INT,
         gender VARCHAR(50),
         phone VARCHAR(20),
-        email VARCHAR(255) NOT NULL,
+        email VARCHAR(255),
         city VARCHAR(255),
         experience TEXT,
         languages TEXT,
@@ -47,6 +47,14 @@ async function initializeTables() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // Ensure existing schema allows nullable emails for freelancers
+    // (some registration flows don't require email; make column nullable)
+    try {
+      await client.query(`ALTER TABLE freelancers ALTER COLUMN email DROP NOT NULL`);
+    } catch (e) {
+      // ignore if column doesn't exist or cannot be altered
+    }
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS admins (
